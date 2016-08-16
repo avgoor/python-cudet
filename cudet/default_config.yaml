@@ -28,6 +28,7 @@ logs:
 
 # Filtering
 hard_filter:
+    no_roles: ['fuel']
     status:
         - 'ready'
     online: True
