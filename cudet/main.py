@@ -469,13 +469,17 @@ def main(argv=None):
                               'collected data'),
                         action='store_true')
     parser.add_argument('-c', '--config',
-                        help='Path to user config file',
-                        default=None)
+                        help='Path to user config file')
+    parser.add_argument('-e', '--env', nargs='*', type=int,
+                        help=('Perform check only for specified '
+                              'environment ids'))
+    parser.add_argument('-n', '--node', nargs='*', type=int,
+                        help='Perform check only for specified node ids')
     if argv is None:
         argv = sys.argv
     args = parser.parse_args(argv[1:])
     try:
-        conf = configuration.get_config(args.config)
+        conf = configuration.get_config(args)
         nm = node_manager_init(conf)
     except Exception as e:
         print("[ERROR] Could't get node list.")

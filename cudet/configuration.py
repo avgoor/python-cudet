@@ -23,16 +23,16 @@ DEFAULT_CONFIG_FILE = 'default_config.yaml'
 class CudetConfig(object):
     """Represents configuration of Cudet
 
-    Initializes default configuration and updates it by user config file
-    if it's provided.
+    Initializes default configuration and updates it by options
+    provided via command-line arguments.
     """
 
-    def __init__(self, config_file=None):
+    def __init__(self, args=None):
         self.config = {}
         self._init_default_config()
 
-        if config_file is not None:
-            self._update_config(config_file)
+        if args is not None:
+            self._update_config_by_args(args)
 
     def _init_default_config(self):
         default_config_file = pkg_resources.resource_filename(
@@ -40,7 +40,23 @@ class CudetConfig(object):
             DEFAULT_CONFIG_FILE)
         self.config = utils.load_yaml_file(default_config_file)
 
-    def _update_config(self, config_file):
+    def _update_config_by_args(self, args):
+        user_config = getattr(args, 'config', None)
+
+        if user_config is not None:
+            self._update_by_config_file(args.config)
+
+        env_ids = getattr(args, 'env', None)
+
+        if env_ids is not None:
+            self.config['hard_filter']['cluster'] = env_ids
+
+        node_ids = getattr(args, 'node', None)
+
+        if node_ids is not None:
+            self.config['hard_filter']['id'] = node_ids
+
+    def _update_by_config_file(self, config_file):
         additional_config = utils.load_yaml_file(config_file)
         self.config.update(additional_config)
 
@@ -67,12 +83,12 @@ class CudetConfig(object):
         return '<cudet config object>'
 
 
-def _init_config(config_file=None):
+def _init_config(args=None):
     global _CONFIG
-    _CONFIG = CudetConfig(config_file)
+    _CONFIG = CudetConfig(args)
 
 
-def get_config(config_file=None):
+def get_config(args=None):
     if _CONFIG is None:
-        _init_config(config_file)
+        _init_config(args)
     return _CONFIG
