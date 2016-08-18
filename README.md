@@ -21,7 +21,7 @@ requirements should be met:
 # Installation and updates
 - install python-cudet: `pip install git+https://github.com/toha10/python-cudet`
 - To update already installed python-cudet use pip to reinstall the package:
-  `pip uninstall pythn-cudet; pip install python-cudet`.
+  `pip uninstall python-cudet; pip install python-cudet`.
 
 # Usage
 - cudet takes two options from command-line "--env" which allows you to
