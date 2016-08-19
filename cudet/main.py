@@ -32,6 +32,9 @@ from cudet.utils import interrupt_wrapper
 from cudet.vercmp import vercmp
 
 
+logger = logging.getLogger()
+
+
 class Unbuffered(object):
     def __init__(self, stream):
         self.stream = stream
@@ -191,10 +194,7 @@ def load_versions_dict(conf, nm):
 
 
 def node_manager_init(conf):
-    logging.basicConfig(level=logging.WARNING,
-                        format='%(asctime)s %(levelname)s %(message)s')
-    nm = nodes.NodeManager(conf=conf)
-    return nm
+    return nodes.NodeManager(conf=conf)
 
 
 def output_add(output, node, message, key=None):
@@ -460,6 +460,14 @@ def perform(description, function, nm, args, ok_message):
         print(ok_message)
 
 
+def _setup_logging(debug):
+    log_level = logging.DEBUG if debug else logging.WARNING
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)s (%(module)s) %(message)s',
+        level=log_level
+    )
+
+
 @interrupt_wrapper
 def main(argv=None):
     sys.stdout = Unbuffered(sys.stdout)
@@ -475,9 +483,15 @@ def main(argv=None):
                               'environment ids'))
     parser.add_argument('-n', '--node', nargs='*', type=int,
                         help='Perform check only for specified node ids')
+    parser.add_argument('-d', '--debug',
+                        default=False, action='store_true',
+                        help='Turn on debug messages')
     if argv is None:
         argv = sys.argv
     args = parser.parse_args(argv[1:])
+
+    _setup_logging(args.debug)
+
     try:
         conf = configuration.get_config(args)
         nm = node_manager_init(conf)
