@@ -20,18 +20,12 @@ import os
 import shutil
 import sys
 
-try:
-    from fuelclient.client import Client as FuelClient
-except:
-    FuelClient = None
-
-try:
-    from fuelclient.client import logger
-    logger.handlers = []
-except:
-    pass
-
+from cudet import fuel_client
 from cudet import utils
+
+
+
+logger = logging.getLogger(__name__)
 
 
 class Node(object):
@@ -292,28 +286,9 @@ class NodeManager(object):
                 self.import_rq()
         self.nodes = {}
         self.fuel_init()
-        # save os environment variables
-        environ = os.environ
-        if FuelClient and conf.fuelclient:
-            try:
-                if self.conf.fuel_skip_proxy:
-                    os.environ['HTTPS_PROXY'] = ''
-                    os.environ['HTTP_PROXY'] = ''
-                    os.environ['https_proxy'] = ''
-                    os.environ['http_proxy'] = ''
-                self.logger.info('Setup fuelclient instance')
-                self.fuelclient = FuelClient()
-                self.fuelclient.username = self.conf.fuel_user
-                self.fuelclient.password = self.conf.fuel_pass
-                self.fuelclient.tenant_name = self.conf.fuel_tenant
-                # self.fuelclient.debug_mode(True)
-            except Exception as e:
-                self.logger.info('Failed to setup fuelclient instance:%s' % e,
-                                 exc_info=True)
-                self.fuelclient = None
-        else:
-            self.logger.info('Skipping setup fuelclient instance')
-            self.fuelclient = None
+
+        self.fuel_client = fuel_client.get_client(self.conf)
+
         if nodes_json:
             self.nodes_json = utils.load_json_file(nodes_json)
         else:
@@ -336,8 +311,6 @@ class NodeManager(object):
                 do additional apply_conf(clean=False) with this yaml.
                 Move some stuff from rq.yaml to extended.yaml'''
                 pass
-        # restore os environment variables
-        os.environ = environ
 
     def __str__(self):
         def ml_column(matrix, i):
@@ -437,10 +410,10 @@ class NodeManager(object):
         self.nodes[self.conf.fuel_ip] = fuelnode
 
     def get_nodes_fuelclient(self):
-        if not self.fuelclient:
+        if not self.fuel_client:
             return False
         try:
-            self.nodes_json = self.fuelclient.get_request('nodes')
+            self.nodes_json = self.fuel_client.get_request('nodes')
             self.logger.debug(self.nodes_json)
             return True
         except Exception as e:
@@ -450,14 +423,14 @@ class NodeManager(object):
             return False
 
     def get_release_fuel_client(self):
-        if not self.fuelclient:
+        if not self.fuel_client:
             return False
         try:
             self.logger.info('getting release from fuel')
-            v = self.fuelclient.get_request('version')
+            v = self.fuel_client.get_request('version')
             fuel_version = v['release']
             self.logger.debug('version response:%s' % v)
-            clusters = self.fuelclient.get_request('clusters')
+            clusters = self.fuel_client.get_request('clusters')
             self.logger.debug('clusters response:%s' % clusters)
         except:
             self.logger.warning(("Can't get fuel version or "
