@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import contextlib
 import json
 import logging
 import multiprocessing
@@ -265,3 +266,14 @@ def ssh_node(ip, command='', ssh_opts=None, env_vars=None, timeout=15,
 # wrap non-list into list
 def w_list(value):
     return value if type(value) == list else [value]
+
+
+@contextlib.contextmanager
+def environ_settings(**kwargs):
+    environ_dump = os.environ
+    for opt, value in kwargs.iteritems():
+        os.environ[opt] = value
+    try:
+        yield
+    finally:
+        os.environ = environ_dump

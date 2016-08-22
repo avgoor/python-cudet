@@ -1,7 +1,8 @@
 # Fuel client options
 fuelclient: True
-fuel_skip_proxy: True
 fuel_ip: '127.0.0.1'
+fuel_port: "8000"
+fuel_http_proxy: ''
 fuel_user: 'admin'
 fuel_pass: 'admin'
 fuel_tenant: 'admin'
@@ -58,16 +59,6 @@ ssh_opts:
 env_vars:
     - 'OPENRC=/root/openrc'
     - 'IPTABLES_STR="iptables -nvL"'
-
-# Shell mode - only run what was specified via command line.
-# Skip actionable conf fields (see cudet/nodes.py -> Node.conf_actionable);
-# Skip rqfile import;
-# Skip any overrides (see Node.conf_match_prefix);
-# Skip 'once' overrides (see Node.conf_once_prefix);
-# Skip Fuel node;
-# Print command execution results. Outputs will be in a
-# place specified by conf['outdir']
-shell_mode: False
 
 # timeout is seconds for data collection (per command) - increase if needed
 timeout: 600
