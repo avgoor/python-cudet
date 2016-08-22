@@ -24,6 +24,7 @@ from pkg_resources import parse_version
 NEWER_901 = False
 try:
     import fuelclient
+    from fuelclient import fuelclient_settings
     if parse_version('9.0.1') >= parse_version(fuelclient.__version__):
         from fuelclient.client import Client as FuelClient
     else:
@@ -60,18 +61,24 @@ def get_client(config):
             if NEWER_901:
                 client = FuelClient(host=config.fuel_ip,
                                     port=config.fuel_port,
-                                    http_proxy = config.fuel_http_proxy,
+                                    http_proxy=config.fuel_http_proxy,
                                     os_username=config.fuel_user,
                                     os_password=config.fuel_pass,
                                     os_tenant_name=config.fuel_tenant)
             else:
+                fuel_settings = fuelclient_settings.get_settings()
+                fuel_config = fuel_settings.config
+                fuel_config['OS_USERNAME'] = config.fuel_user
+                fuel_config['OS_PASSWORD'] = config.fuel_pass
+                fuel_config['OS_TENANT_NAME'] = config.fuel_tenant
+                fuel_config['HTTP_PROXY'] = config.fuel_http_proxy
+
                 with utils.environ_settings(
-                        HTTP_PROXY=config.fuel_http_proxy,
-                        http_proxy=config.fuel_http_proxy):
+                        http_proxy=config.fuel_http_proxy,
+                        HTTP_PROXY=config.fuel_http_proxy):
+
                     client = FuelClient()
-                    client.username = config.fuel_user
-                    client.password = config.fuel_pass
-                    client.tenant_name = config.fuel_tenant
+
         except Exception as e:
             logger.info('Failed to initialize fuelclient instance:%s' % e,
                         exc_info=True)
