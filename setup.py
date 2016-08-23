@@ -22,4 +22,6 @@ setup(name='python-cudet',
       data_files=d_files,
       include_package_data=True,
       entry_points={'console_scripts':
-                    ['cudet=cudet.main:main']})
+                    ['cudet=cudet.main:main'],
+                    'fuelclient':
+                    ['update=cudet.updates:Updates']})
