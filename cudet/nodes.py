@@ -266,6 +266,14 @@ class NodeManager(object):
 
         self.nodes = {}
         self.fuel_client = fuel_client.get_client(self.conf)
+
+        if self.fuel_client is None:
+            self.cli_creds = 'OS_TENANT_NAME={tenant} OS_USERNAME={user} ' \
+                             'OS_PASSWORD={password}'.\
+                format(tenant=self.conf.fuel_tenant,
+                       user=self.conf.fuel_user,
+                       password=self.conf.fuel_pass)
+
         self._fuel_node_init()
 
         if nodes_json:
@@ -407,12 +415,14 @@ class NodeManager(object):
     def _get_nodes_cli(self):
         self.logger.info('use CLI for getting node information')
         fuelnode = self.nodes[self.conf.fuel_ip]
+
         cmd = 'fuel node list --json'
+
         nodes_json_str, err, code = utils.ssh_node(ip=fuelnode.ip,
                                                    command=cmd,
+                                                   env_vars=self.cli_creds,
                                                    ssh_opts=fuelnode.ssh_opts,
-                                                   timeout=fuelnode.timeout,
-                                                   prefix=fuelnode.prefix)
+                                                   timeout=fuelnode.timeout)
         if code != 0:
             self.logger.warning(('NodeManager: cannot get '
                                  'fuel node list from CLI: %s') % err)
@@ -443,14 +453,15 @@ class NodeManager(object):
 
     def _get_master_release_fuel_cli(self):
         self.logger.info('use CLI for getting fuel release')
+
         cmd = 'fuel --fuel-version --json'
+
         version_info_str, err, code = utils.ssh_node(
             ip=self.conf.fuel_ip,
             command=cmd,
+            env_vars=self.cli_creds,
             ssh_opts=self.conf.ssh_opts,
-            timeout=self.conf.timeout,
-            prefix=self.conf.prefix
-        )
+            timeout=self.conf.timeout)
         if code != 0:
             self.logger.warning('NodeManager: cannot get fuel release '
                                 'from CLI: {}'.format(err))
@@ -488,14 +499,15 @@ class NodeManager(object):
     def _get_slaves_release_fuel_cli(self):
         self.logger.info('use CLI for getting nodes release')
         fuelnode = self.nodes[self.conf.fuel_ip]
+
         cmd = 'fuel environment --json'
+
         clusters_info_str, err, code = utils.ssh_node(
             ip=fuelnode.ip,
             command=cmd,
+            env_vars=self.cli_creds,
             ssh_opts=fuelnode.ssh_opts,
-            timeout=fuelnode.timeout,
-            prefix=fuelnode.prefix
-        )
+            timeout=fuelnode.timeout)
 
         if code != 0:
             self.logger.warning(('NodeManager: cannot get '
