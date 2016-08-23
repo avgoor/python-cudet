@@ -49,7 +49,8 @@ def interrupt_wrapper(f):
 
 def run_with_lock(f):
     def wrapper(*args, **kwargs):
-        lock = flock.FLock(os.path.join(tempfile.gettempdir(), 'cudet_%s.lock' % f.__name__))
+        lock = flock.FLock(os.path.join(tempfile.gettempdir(),
+                                        'cudet_%s.lock' % f.__name__))
         if not lock.lock():
             logger.warning('Unable to obtain lock, skipping "%s"' %
                            f.__name__)
@@ -229,10 +230,12 @@ def launch_cmd(cmd, timeout, input=None, ok_codes=None):
 def ssh_node(ip, command='', ssh_opts=None, env_vars=None, timeout=15,
              filename=None, inputfile=None, outputfile=None,
              ok_codes=None, input=None, prefix=None):
-    if not ssh_opts:
+    if ssh_opts is None:
         ssh_opts = ''
-    if not env_vars:
+    if env_vars is None:
         env_vars = ''
+    if prefix is None:
+        prefix = ''
     if type(ssh_opts) is list:
         ssh_opts = ' '.join(ssh_opts)
     if type(env_vars) is list:

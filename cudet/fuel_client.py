@@ -19,26 +19,24 @@ Working with fuel client as a library
 """
 
 import logging
-from pkg_resources import parse_version
 
-NEWER_901 = False
 try:
-    import fuelclient
-    from fuelclient import fuelclient_settings
-    if parse_version('9.0.1') >= parse_version(fuelclient.__version__):
-        from fuelclient.client import Client as FuelClient
-    else:
-        from fuelclient.client import APIClient as FuelClient
-        NEWER_901 = True
+    from fuelclient.client import Client as FuelClient
 except ImportError:
-    FuelClient = None
+    try:
+        from fuelclient.client import APIClient as FuelClient
+    except ImportError:
+        FuelClient = None
 
-# LP bug 1592445
-try:
-    from fuelclient.client import logger
-    logger.handlers = []
-except:
-    pass
+if FuelClient is not None:
+    from fuelclient import fuelclient_settings
+
+    # LP bug 1592445
+    try:
+        from fuelclient.client import logger
+        logger.handlers = []
+    except:
+        pass
 
 from cudet import utils
 
@@ -56,32 +54,30 @@ def get_client(config):
     client = None
 
     if FuelClient is not None:
-
-        try:
-            if NEWER_901:
-                client = FuelClient(host=config.fuel_ip,
-                                    port=config.fuel_port,
-                                    http_proxy=config.fuel_http_proxy,
-                                    os_username=config.fuel_user,
-                                    os_password=config.fuel_pass,
-                                    os_tenant_name=config.fuel_tenant)
-            else:
-                fuel_settings = fuelclient_settings.get_settings()
-                fuel_config = fuel_settings.config
-                fuel_config['OS_USERNAME'] = config.fuel_user
-                fuel_config['OS_PASSWORD'] = config.fuel_pass
-                fuel_config['OS_TENANT_NAME'] = config.fuel_tenant
-                fuel_config['HTTP_PROXY'] = config.fuel_http_proxy
-
-                with utils.environ_settings(
-                        http_proxy=config.fuel_http_proxy,
-                        HTTP_PROXY=config.fuel_http_proxy):
-
+        with utils.environ_settings(http_proxy=config.fuel_http_proxy,
+                                    HTTP_PROXY=config.fuel_http_proxy):
+            try:
+                try:
+                    # try to instantiate fuel client with new init signature
+                    client = FuelClient(host=config.fuel_ip,
+                                        port=config.fuel_port,
+                                        http_proxy=config.fuel_http_proxy,
+                                        os_username=config.fuel_user,
+                                        os_password=config.fuel_pass,
+                                        os_tenant_name=config.fuel_tenant)
+                except TypeError:
+                    # instantiate fuel client using old init signature
+                    fuel_settings = fuelclient_settings.get_settings()
+                    fuel_config = fuel_settings.config
+                    fuel_config['OS_USERNAME'] = config.fuel_user
+                    fuel_config['OS_PASSWORD'] = config.fuel_pass
+                    fuel_config['OS_TENANT_NAME'] = config.fuel_tenant
+                    fuel_config['HTTP_PROXY'] = config.fuel_http_proxy
                     client = FuelClient()
 
-        except Exception as e:
-            logger.info('Failed to initialize fuelclient instance:%s' % e,
-                        exc_info=True)
+            except Exception as e:
+                logger.info('Failed to initialize fuelclient instance:%s' % e,
+                            exc_info=True)
     else:
         logger.info('Fuelclient can not be imported')
 
