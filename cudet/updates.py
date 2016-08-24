@@ -20,6 +20,8 @@ from fuelclient.commands import base, environment
 from fuelclient.cli.actions.fact import DeploymentAction
 from fuelclient.cli.actions.settings import SettingsAction
 from fuelclient.cli.error import ServerDataException
+from fuelclient.client import logger
+
 
 MU_UPGRADE_DICT_RESTRICTED = {
     'mu_upgrade': {
@@ -45,17 +47,16 @@ MU_UPGRADE_DICT_FULL['mu_upgrade'].update({
 
 
 class Updates(environment.EnvMixIn, base.BaseCommand):
-    """TODO: provide meaningful description"""
+    """Sets the needed options for environment and starts the update"""
 
     def get_parser(self, prog_name):
-        print "prog_name:", prog_name
         parser = super(Updates, self).get_parser(prog_name)
         parser.add_argument('install',
                             type=bool,
-                            help='Install MU')
+                            help='Install update')
         parser.add_argument('--env',
                             type=int,
-                            help='Env ID')
+                            help='Environment ID')
         parser.add_argument('--restart-rabbit',
                             dest='restart_rabbit',
                             action='store_true',
@@ -85,7 +86,6 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
         # Explicitly set some arguments
         setattr(parsed_args, 'force', None)
         setattr(parsed_args, 'node', None)
-        setattr(parsed_args, 'node', None)
         setattr(parsed_args, 'dir', '/root')
         if parsed_args.install:
             try:
@@ -94,23 +94,32 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
                 try:
                     deployment_action.download(parsed_args)
                 except ServerDataException as e:
-                    if 'There is no deployment info for this environment' in e.message:
+                    if 'no deployment info for this environment' in e.message:
                         settings_action.download(parsed_args)
-                        self._update_settings_file('/root/settings_{0}.yaml'.format(env_id),
-                                                   restart_rabbit=parsed_args.restart_rabbit,
-                                                   restart_mysql=parsed_args.restart_mysql)
-                else:
-                    for filename in glob.glob("/root/deployment_{0}/*.yaml".format(env_id)):
                         self._update_settings_file(
-                            filename, full=False,
+                            '/root/settings_{0}.yaml'.format(env_id),
                             restart_rabbit=parsed_args.restart_rabbit,
-                            restart_mysql=parsed_args.restart_mysql)
-                settings_action.upload(parsed_args)
-                task_id = self.client.redeploy_changes(env_id)
-                msg = ('Successfully prepared and started updates to ' 'cluster {0} as task {1}\n'.format(
-                    env_id, task_id))
-            except Exception as e:
-                msg = ('Something went wrong while preparing and deploying updates to '
-                       'cluster {0}\n'.format(env_id))
+                            restart_mysql=parsed_args.restart_mysql
+                        )
+                        settings_action.upload(parsed_args)
+                else:
+                    for filename in glob.glob(
+                            "/root/deployment_{0}/*.yaml".format(env_id)):
+                        self._update_settings_file(
+                            filename,
+                            full=False,
+                            restart_rabbit=parsed_args.restart_rabbit,
+                            restart_mysql=parsed_args.restart_mysql
+                        )
+                    deployment_action.upload(parsed_args)
 
-            self.app.stdout.write(msg)
+                task_id = self.client.redeploy_changes(env_id)
+                logger.info('Successfully prepared and started updates on'
+                            ' cluster {0} as task {1}. Check the status of'
+                            ' the updates deployment procedure by running'
+                            ' `fuel2 task show {1}` or using Web UI.'
+                            ''.format(env_id, task_id))
+
+            except Exception as e:
+                logger.exception('Fail to install updates for environment '
+                                 '{0}'.format(env_id), exc_info=True)
