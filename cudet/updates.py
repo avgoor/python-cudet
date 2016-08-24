@@ -34,7 +34,7 @@ MU_UPGRADE_DICT_FULL = deepcopy(MU_UPGRADE_DICT_RESTRICTED)
 MU_UPGRADE_DICT_FULL['mu_upgrade'].update({
     'metadata': {
         'group': 'general',
-        'label': 'MU label',
+        'label': 'MU',
         'restrictions': [{
             'action': 'hide',
             'condition': 'true'
