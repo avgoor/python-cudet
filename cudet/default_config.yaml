@@ -27,9 +27,9 @@ logs:
     exclude: '\.[^12]\.gz$|\.\d{2,}\.gz$'
     start: '30'
 
-# Filtering
-hard_filter:
-    no_roles: ['fuel']
+# Nodes filtration parameters
+filters:
+    check_master: False
     status:
         - 'ready'
     online: True
@@ -39,11 +39,6 @@ hard_filter:
     id: []
     # you can filter by env ids
     cluster: []
-soft_filter:
-    status:
-        - 'ready'
-        - 'discover'
-    online: True
 
 # Prefix for execution commands on nodes
 prefix: 'nice -n 19 ionice -c 3'

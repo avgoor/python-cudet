@@ -24,6 +24,7 @@ import tempfile
 import threading
 import yaml
 
+from cudet import exceptions
 from cudet import flock
 
 
@@ -36,6 +37,8 @@ def interrupt_wrapper(f):
             f(*args, **kwargs)
         except KeyboardInterrupt:
             logger.warning('Interrupted, exiting.')
+        except exceptions.AllNodesFiltered as e:
+            logger.warning(e.message)
         except Exception as e:
             logger.error('Error: %s' % e, exc_info=True)
             for k in dir(e):
