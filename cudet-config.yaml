@@ -5,8 +5,8 @@ rqdir: './rq'
 rqfile: './rq.yaml'
 cudet_db_dir: './db'
 outdir: '/tmp/cudet/info'
-hard_filter:
-    no_roles: ['fuel']
+filters:
+    check_master: False
     status: ['ready']
     online: True
     # you can filter by roles

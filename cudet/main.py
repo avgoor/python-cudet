@@ -198,9 +198,6 @@ def node_manager_init(conf):
 
 
 def output_add(output, node, message, key=None):
-    # do not process output if node is filtered
-    if node.filtered_out:
-        return output
     if node.cluster == 0:
         if 'fuel' not in output:
             if key:
@@ -496,7 +493,7 @@ def main(argv=None):
         conf = configuration.get_config(args)
         nm = node_manager_init(conf)
     except Exception as e:
-        print("[ERROR] Could't get node list.")
+        print("There are no nodes to check")
         raise e
 
     versions_dict, output = load_versions_dict(conf, nm)

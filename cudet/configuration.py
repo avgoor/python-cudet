@@ -49,12 +49,12 @@ class CudetConfig(object):
         env_ids = getattr(args, 'env', None)
 
         if env_ids is not None:
-            self.config['hard_filter']['cluster'] = env_ids
+            self.config['filters']['cluster'] = env_ids
 
         node_ids = getattr(args, 'node', None)
 
         if node_ids is not None:
-            self.config['hard_filter']['id'] = node_ids
+            self.config['filters']['id'] = node_ids
 
     def _update_by_config_file(self, config_file):
         additional_config = utils.load_yaml_file(config_file)

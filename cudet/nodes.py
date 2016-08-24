@@ -20,6 +20,8 @@ import os
 import shutil
 import sys
 
+from cudet import configuration
+from cudet import exceptions
 from cudet import fuel_client
 from cudet import utils
 
@@ -68,25 +70,10 @@ class Node(object):
         self.mapscr = {}
         self.name = name
         self.fqdn = fqdn
-        self.filtered_out = False
         self.outputs_timestamp = False
         self.outputs_timestamp_dir = None
         self.apply_conf(conf)
         self.logger = logger or logging.getLogger(__name__)
-
-    def __str__(self):
-        fields = self.print_table()
-        return self.pt.format(*fields)
-
-    def print_table(self):
-        if not self.filtered_out:
-            my_id = self.id
-        else:
-            my_id = str(self.id) + ' [skipped]'
-        return [str(my_id), str(self.cluster), str(self.ip), str(self.mac),
-                self.os_platform, ','.join(self.roles),
-                str(self.online), str(self.status),
-                str(self.name), str(self.fqdn)]
 
     def apply_conf(self, conf, clean=True):
 
@@ -265,6 +252,7 @@ class NodeManager(object):
             self._import_rq()
 
         self.nodes = {}
+        self.nodes_filter = NodeFilter()
         self.fuel_client = fuel_client.get_client(self.conf)
 
         if self.fuel_client is None:
@@ -274,9 +262,10 @@ class NodeManager(object):
                        user=self.conf.fuel_user,
                        password=self.conf.fuel_pass)
 
-        self._fuel_node_init()
+        if self.nodes_filter.check_master:
+            self._fuel_node_init()
 
-        if nodes_json:
+        if nodes_json is not None:
             self.nodes_json = utils.load_json_file(nodes_json)
         else:
             if not self.get_nodes():
@@ -284,43 +273,8 @@ class NodeManager(object):
 
         self._nodes_init()
 
-        # apply soft-filter on all nodes
-        for node in self.nodes.values():
-            if not self.node_filter(node, self.conf.soft_filter):
-                node.filtered_out = True
-
         self.nodes_reapply_conf()
         self._conf_assign_once()
-
-    def __str__(self):
-        def ml_column(matrix, i):
-            a = [row[i] for row in matrix]
-            mc = 0
-            for word in a:
-                lw = len(word)
-                mc = lw if (lw > mc) else mc
-            return mc + 2
-        header = Node.header
-        nodestrings = [header]
-        for n in self.sorted_nodes():
-            if self.node_filter(n, self.conf.hard_filter):
-                nodestrings.append(n.print_table())
-        colwidth = []
-        for i in range(len(header)):
-            colwidth.append(ml_column(nodestrings, i))
-        pt = ''
-        for i in range(len(colwidth)):
-            pt += '{%s:<%s}' % (i, str(colwidth[i]))
-        nodestrings = [(pt.format(*header))]
-        for n in self.sorted_nodes():
-            if self.node_filter(n, self.conf.hard_filter):
-                n.pt = pt
-                nodestrings.append(str(n))
-        return '\n'.join(nodestrings)
-
-    def sorted_nodes(self):
-        s = [n for n in sorted(self.nodes.values(), key=lambda x: x.id)]
-        return s
 
     def _import_rq(self):
 
@@ -388,9 +342,6 @@ class NodeManager(object):
                         online=True,
                         ip=self.conf.fuel_ip,
                         conf=self.conf)
-        # soft-skip Fuel if it is hard-filtered
-        if not self.node_filter(fuelnode, self.conf.hard_filter):
-            fuelnode.filtered_out = True
         self.nodes[self.conf.fuel_ip] = fuelnode
 
     def get_nodes(self):
@@ -414,15 +365,14 @@ class NodeManager(object):
 
     def _get_nodes_cli(self):
         self.logger.info('use CLI for getting node information')
-        fuelnode = self.nodes[self.conf.fuel_ip]
 
         cmd = 'fuel node list --json'
 
-        nodes_json_str, err, code = utils.ssh_node(ip=fuelnode.ip,
+        nodes_json_str, err, code = utils.ssh_node(ip=self.conf.fuel_ip,
                                                    command=cmd,
                                                    env_vars=self.cli_creds,
-                                                   ssh_opts=fuelnode.ssh_opts,
-                                                   timeout=fuelnode.timeout)
+                                                   ssh_opts=self.conf.ssh_opts,
+                                                   timeout=self.conf.timeout)
         if code != 0:
             self.logger.warning(('NodeManager: cannot get '
                                  'fuel node list from CLI: %s') % err)
@@ -498,16 +448,15 @@ class NodeManager(object):
 
     def _get_slaves_release_fuel_cli(self):
         self.logger.info('use CLI for getting nodes release')
-        fuelnode = self.nodes[self.conf.fuel_ip]
 
         cmd = 'fuel environment --json'
 
         clusters_info_str, err, code = utils.ssh_node(
-            ip=fuelnode.ip,
+            ip=self.conf.fuel_ip,
             command=cmd,
             env_vars=self.cli_creds,
-            ssh_opts=fuelnode.ssh_opts,
-            timeout=fuelnode.timeout)
+            ssh_opts=self.conf.ssh_opts,
+            timeout=self.conf.timeout)
 
         if code != 0:
             self.logger.warning(('NodeManager: cannot get '
@@ -527,41 +476,58 @@ class NodeManager(object):
     def _nodes_init(self):
         release_map = self.get_slave_nodes_release()
 
-        for node_data in self.nodes_json:
+        filtered_nodes = self.nodes_filter.filter_nodes(self.nodes_json)
+
+        self._check_filtration_results(filtered_nodes)
+
+        for node_data in filtered_nodes:
             node_id = int(node_data['id'])
-            # exclude master node, initialize only slaves
-            if node_id != 0:
-                node_roles = node_data.get('roles')
+            node_roles = node_data.get('roles')
 
-                if not node_roles:
-                    roles = ['None']
-                elif isinstance(node_roles, list):
-                    roles = node_roles
-                else:
-                    roles = str(node_roles).split(', ')
+            if not node_roles:
+                roles = ['None']
+            elif isinstance(node_roles, list):
+                roles = node_roles
+            else:
+                roles = str(node_roles).split(', ')
 
-                keys = "fqdn name mac os_platform status online ip".split()
+            keys = "fqdn name mac os_platform status online ip".split()
 
-                cluster_id = \
-                    node_data['cluster'] if node_data['cluster'] else None
+            cluster_id = \
+                node_data['cluster'] if node_data['cluster'] else None
 
-                node_release = release_map.get(cluster_id, 'n/a')
-                self.logger.info('node: {0} - release: {1}'.
-                                 format(node_id, node_release))
+            node_release = release_map.get(cluster_id, 'n/a')
+            self.logger.info('node: {0} - release: {1}'.
+                             format(node_id, node_release))
 
-                params = {'id': int(node_data['id']),
-                          'cluster': cluster_id,
-                          'release': node_release,
-                          'roles': roles,
-                          'conf': self.conf}
+            params = {'id': int(node_data['id']),
+                      'cluster': cluster_id,
+                      'release': node_release,
+                      'roles': roles,
+                      'conf': self.conf}
 
-                for key in keys:
-                    params[key] = node_data[key]
+            for key in keys:
+                params[key] = node_data[key]
 
-                node = Node(**params)
+            node = Node(**params)
+            self.nodes[node.ip] = node
 
-                if self.node_filter(node, self.conf['hard_filter']):
-                    self.nodes[node.ip] = node
+    def _check_filtration_results(self, filtered_nodes):
+
+        all_nodes_num = len(self.nodes_json)
+        filtered_nodes_num = len(filtered_nodes)
+
+        if all_nodes_num > 0 and filtered_nodes_num == 0:
+            msg = 'No valid nodes were found which could fit ' \
+                  'filter parameters.'
+            raise exceptions.AllNodesFiltered(msg)
+
+        elif all_nodes_num == filtered_nodes_num:
+            self.logger.info('All available nodes passed filtration.')
+
+        elif all_nodes_num > filtered_nodes:
+            self.logger.info('Amount of filtered out nodes: {}'.format(
+                all_nodes_num - filtered_nodes))
 
     def _conf_assign_once(self):
         once = Node.conf_once_prefix
@@ -587,39 +553,58 @@ class NodeManager(object):
         for node in self.nodes.values():
             node.apply_conf(self.conf)
 
-    def node_filter(self, node, filter_rules):
-        elems = []
-
-        for k in filter_rules:
-            if k.startswith('no_') and hasattr(node, k[3:]):
-                elems.append({'node_k': k[3:], 'k': k, 'negative': True})
-            elif hasattr(node, k) and filter_rules[k]:
-                elems.append({'node_k': k, 'k': k, 'negative': False})
-
-        checks = []
-
-        for el in elems:
-            node_v = utils.w_list(getattr(node, el['node_k']))
-            filter_v = utils.w_list(filter_rules[el['k']])
-            if el['negative']:
-                checks.append(set(node_v).isdisjoint(filter_v))
-            elif node.id != 0:
-                '''Do not apply normal (positive) filters to Fuel node
-                , Fuel node will only be filtered by negative filters
-                such as no_id = [0] or no_roles = ['fuel']'''
-                checks.append(not set(node_v).isdisjoint(filter_v))
-
-        return all(checks)
-
     @utils.run_with_lock
     def run_commands(self, timeout=15, fake=False, maxthreads=100):
         run_items = []
         for key, node in self.nodes.items():
-            if not node.filtered_out:
-                run_items.append(utils.RunItem(target=node.exec_cmd,
-                                               args={'fake': fake},
-                                               key=key))
+            run_items.append(utils.RunItem(target=node.exec_cmd,
+                                           args={'fake': fake},
+                                           key=key))
         result = utils.run_batch(run_items, maxthreads, dict_result=True)
         for key in result:
             self.nodes[key].mapcmds = result[key][0]
             self.nodes[key].mapscr = result[key][1]
+
+
+class NodeFilter(object):
+    """
+    Implements node filtering logic
+    """
+
+    def __init__(self):
+        self.filters = self._get_filters()
+
+    def _get_filters(self):
+        config = configuration.get_config()
+        return config.filters
+
+    @property
+    def check_master(self):
+        return self.filters.get('check_master', False)
+
+    def filter_nodes(self, nodes_info):
+
+        filtered_nodes = copy.deepcopy(nodes_info)
+        filter_attrs = self._prepare_filter_attrs()
+
+        for filter_attr in filter_attrs:
+            filtered_nodes = self._do_filter(filtered_nodes, filter_attr)
+
+        self._online_filter(filtered_nodes)
+        return filtered_nodes
+
+    def _prepare_filter_attrs(self):
+        filter_attrs = [attr for attr in self.filters.keys()
+                        if attr not in ['check_master', 'online']]
+
+        non_empty_filter_attrs = [attr for attr in filter_attrs
+                                  if len(self.filters[attr]) > 0]
+
+        return non_empty_filter_attrs
+
+    def _online_filter(self, nodes_info):
+        return [node for node in nodes_info if node.get('online')]
+
+    def _do_filter(self, nodes_info, attr):
+        return [node for node in nodes_info
+                if node.get(attr) in self.filters[attr]]
