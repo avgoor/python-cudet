@@ -15,7 +15,6 @@
 
 import yaml
 import glob
-from copy import deepcopy
 from fuelclient.commands import base, environment
 from fuelclient.cli.actions.fact import DeploymentAction
 from fuelclient.cli.actions.settings import SettingsAction
@@ -23,27 +22,46 @@ from fuelclient.cli.error import ServerDataException
 from fuelclient.client import logger
 
 
-MU_UPGRADE_DICT_RESTRICTED = {
+MU_UPGRADE_FOR_SETTINGS = {
     'mu_upgrade': {
-        'enabled': True,
-        'restart_rabbit': True,
-        'restart_mysql': True,
+        'metadata': {
+            'label': 'Maintenance update',
+            'weight': 65,
+            'group': 'general',
+        },
+        'repos': {
+            'value': 'mos, mos-updates, mos-security, mos-holdback',
+            'type': 'text',
+            'label': 'Repos for upgrade',
+            'description': 'The list of repositories to be used for cluster maintenance upgrade'
+        },
+        'restart_rabbit': {
+            'value': True,
+            'type': 'hidden'
+        },
+        'restart_mysql': {
+            'value': True,
+            'type': 'hidden'
+        },
+        'enabled': {
+            'value': True,
+            'type': 'hidden'
+        }
     }
 }
-MU_UPGRADE_DICT_FULL = deepcopy(MU_UPGRADE_DICT_RESTRICTED)
-MU_UPGRADE_DICT_FULL['mu_upgrade'].update({
-    'metadata': {
-        'group': 'general',
-        'label': 'MU',
-        'restrictions': [{
-            'action': 'hide',
-            'condition': 'true'
-        }],
-        'weight': 10
-    },
-    'type': 'hidden',
-    'value': True
-})
+MU_UPGRADE_FOR_DEPLOYMENT_INFO = {
+    'mu_upgrade': {
+        'enabled': True,
+        'metadata': {
+            'label': 'Maintenance update',
+            'weight': 65,
+            'group': 'general',
+        },
+        'repos': 'mos, mos-updates, mos-security, mos-holdback',
+        'restart_rabbit': True,
+        'restart_mysql': True
+    }
+}
 
 
 class Updates(environment.EnvMixIn, base.BaseCommand):
@@ -58,6 +76,7 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
                             type=int,
                             help='Environment ID')
         parser.add_argument('--restart-rabbit',
+                            '--restart-rabbitmq',
                             dest='restart_rabbit',
                             action='store_true',
                             help='Should we restart rabbit')
@@ -67,15 +86,19 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
                             help='Should we restart mysql')
         return parser
 
-    def _update_settings_file(self, filename, full=True,
+    def _update_settings_file(self, filename, deployment_info=False,
                               restart_rabbit=False, restart_mysql=False):
         settings_yaml = None
-        upgrade_dict = MU_UPGRADE_DICT_FULL if full \
-            else MU_UPGRADE_DICT_RESTRICTED
         with open(filename, 'r') as f:
             settings_yaml = yaml.load(f.read())
-        upgrade_dict['mu_upgrade']['restart_rabbit'] = restart_rabbit
-        upgrade_dict['mu_upgrade']['restart_mysql'] = restart_mysql
+        if deployment_info:
+            upgrade_dict = MU_UPGRADE_FOR_DEPLOYMENT_INFO
+            upgrade_dict['mu_upgrade']['restart_rabbit'] = restart_rabbit
+            upgrade_dict['mu_upgrade']['restart_mysql'] = restart_mysql
+        else:
+            upgrade_dict = MU_UPGRADE_FOR_SETTINGS
+            upgrade_dict['mu_upgrade']['restart_rabbit']['value'] = restart_rabbit
+            upgrade_dict['mu_upgrade']['restart_mysql']['value'] = restart_mysql
         settings_yaml['editable'].update(upgrade_dict)
         with open(filename, 'w') as f:
             stream = yaml.dump(settings_yaml)
@@ -107,7 +130,7 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
                             "/root/deployment_{0}/*.yaml".format(env_id)):
                         self._update_settings_file(
                             filename,
-                            full=False,
+                            deployment_info=True,
                             restart_rabbit=parsed_args.restart_rabbit,
                             restart_mysql=parsed_args.restart_mysql
                         )
