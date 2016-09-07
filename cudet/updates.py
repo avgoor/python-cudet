@@ -76,10 +76,7 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
                             type=int,
                             help='Environment ID')
         parser.add_argument('--restart-rabbit',
-                            dest='restart_rabbit',
-                            action='store_true',
-                            help='Should we restart rabbit')
-        parser.add_argument('--restart-rabbitmq',
+                            '--restart-rabbitmq',
                             dest='restart_rabbit',
                             action='store_true',
                             help='Should we restart rabbit')
