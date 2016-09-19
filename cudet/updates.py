@@ -116,6 +116,7 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
         # Explicitly set some arguments
         setattr(parsed_args, 'force', None)
         setattr(parsed_args, 'node', None)
+        setattr(parsed_args, 'split', True)
         setattr(parsed_args, 'dir', '/root')
         repos = DEFAULT_REPOS_LIST
         if parsed_args.repos:
