@@ -20,10 +20,13 @@ import os
 import shutil
 import sys
 
+from collections import Iterable
+
 from cudet import configuration
 from cudet import exceptions
 from cudet import fuel_client
 from cudet import utils
+from six import string_types
 
 
 logger = logging.getLogger(__name__)
@@ -606,5 +609,16 @@ class NodeFilter(object):
         return [node for node in nodes_info if node.get('online')]
 
     def _do_filter(self, nodes_info, attr):
+        # attr from node can be a string or a list
+        # so we have to handle it properly
+        # TODO: refactor this ugly solution
+        def _to_set(data):
+            return set([data]) if \
+                isinstance(data, string_types) or \
+                not isinstance(data, Iterable) else set(data)
+
         return [node for node in nodes_info
-                if node.get(attr) in self.filters[attr]]
+                if len(
+                    _to_set(node.get(attr)).intersection(
+                        _to_set(self.filters[attr]))
+                ) > 0]
