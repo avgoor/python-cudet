@@ -11,11 +11,11 @@ d_files += [(os.path.join(d, root), [os.path.join(root, f) for f in files])
             for root, dirs, files in os.walk('db')]
 
 setup(name='python-cudet',
-      version='0.1.6',
-      author='Dmitry Sutyagin',
-      author_email='f3flight@gmail.com',
+      version='0.1.7',
+      author='Mirantis',
+      author_email='mos-maintenance@mirantis.com',
       license='Apache2',
-      url='https://github.com/toha10/python-cudet',
+      url='https://github.com/avgoor/python-cudet',
       long_description=open('README.md').read(),
       packages=["cudet"],
       install_requires=['pyyaml'],
@@ -24,4 +24,6 @@ setup(name='python-cudet',
       entry_points={'console_scripts':
                     ['cudet=cudet.main:main'],
                     'fuelclient':
-                    ['update=cudet.updates:Updates']})
+                    ['update=cudet.updates:Updates',
+                     'report=cudet.report:SummaryReport'
+                     ]})
