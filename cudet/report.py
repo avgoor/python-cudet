@@ -21,8 +21,7 @@ class SummaryReport(TaskMixIn, base.BaseListCommand):
     """Show filtered task summary"""
 
     entity_name = 'deployment_history'
-
-    columns = ()
+    columns = ('task_name', 'node', 'summary')
 
     def get_parser(self, prog_name):
 
@@ -44,14 +43,15 @@ class SummaryReport(TaskMixIn, base.BaseListCommand):
             include_summary=True,
             statuses=('ready',)
         )
+
         data = [{
-                'task_name': item['task_name'],
-                'node': item['node_id'],
-                'summary': "\n".join(["{}:{}".format(x['source'], x['message'])
-                                     for x in item['summary']['raw_report']
-                                     if 'should be' in x['message']])
-                } for item in data if _is_noop_event(item)]
-        self.columns = ('task_name', 'node', 'summary')
+            'task_name': item['task_name'],
+            'node': item['node_id'],
+            'summary': "\n".join(["{}:{}".format(x['source'], x['message'])
+                                  for x in item['summary']['raw_report']
+                                  if 'should be' in x['message']])
+            } for item in data if _is_noop_event(item)]
+
         data = data_utils.get_display_data_multi(self.columns, data)
 
         return self.columns, data
