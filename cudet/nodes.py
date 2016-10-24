@@ -577,7 +577,8 @@ class NodeFilter(object):
     def __init__(self):
         self.filters = self._get_filters()
 
-    def _get_filters(self):
+    @staticmethod
+    def _get_filters():
         config = configuration.get_config()
         return config.filters
 
@@ -605,7 +606,8 @@ class NodeFilter(object):
 
         return non_empty_filter_attrs
 
-    def _online_filter(self, nodes_info):
+    @staticmethod
+    def _online_filter(nodes_info):
         return [node for node in nodes_info if node.get('online')]
 
     def _do_filter(self, nodes_info, attr):

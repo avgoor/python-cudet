@@ -18,7 +18,7 @@ from fuelclient.common import data_utils
 
 
 class SummaryReport(TaskMixIn, base.BaseListCommand):
-    """Show filtered task summary"""
+    """Show filtered task summary for the given noop-run task id"""
 
     entity_name = 'deployment_history'
     columns = ('task_name', 'node', 'summary')

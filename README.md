@@ -8,7 +8,7 @@ about environments and the Fuel master server:
 - provides a list of packages for which there are updated versions available
 
 # Supported MOS versions:
-9.0
+9.0, 9.1
 
 # Prerequisites
 - designed to run on Fuel node, if running from any other node, these
@@ -19,7 +19,7 @@ requirements should be met:
   3. edit configuration file to specify Fuel's IP address instead of `127.0.0.1`
 
 # Installation and updates
-- install python-cudet: `pip install git+https://github.com/toha10/python-cudet`
+- install python-cudet: `pip install git+https://github.com/avgoor/python-cudet`
 - To update already installed python-cudet use pip to reinstall the package:
   `pip uninstall python-cudet; pip install python-cudet`.
 
@@ -43,13 +43,8 @@ requirements should be met:
 - data (except stdout which you have to capture manually) is collected into
   `/tmp/cudet/info` if you decide to use/share it
 
-# Reading the output
-Output is self-explanatory, you might want to view it with Vim and set up
-folding like so:
-```
-:set shiftwidth=2
-:set foldmethod=indent
-zM
-```
-Now you can unfold the sections you are interested in with `za` and fold them
-back with `zc`. More info on [Vim wikia](http://vim.wikia.com/wiki/Folding).
+# Fuel extensions:
+- The `fuel2 update` extension provides a convenient way to change metadata of
+  an environment and start the re-deploy procedure to obtain an update
+- The `fuel2 report` extension provides a filter for summary reports, which
+  can be used to filter out unneeded items from a noop-run summary report
