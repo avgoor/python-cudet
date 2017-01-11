@@ -11,7 +11,7 @@ d_files += [(os.path.join(d, root), [os.path.join(root, f) for f in files])
             for root, dirs, files in os.walk('db')]
 
 setup(name='python-cudet',
-      version='0.1.8',
+      version='0.1.9',
       author='Mirantis',
       author_email='mos-maintenance@mirantis.com',
       license='Apache2',
