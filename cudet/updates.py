@@ -15,12 +15,14 @@
 
 import yaml
 import glob
+
 from fuelclient.commands import base, environment
 from fuelclient.cli.actions.fact import DeploymentAction
 from fuelclient.cli.actions.settings import SettingsAction
 from fuelclient.cli.error import ServerDataException
 from fuelclient.client import logger
-
+from fuelclient.objects import Environment
+from six import string_types
 
 DEFAULT_REPOS_LIST = 'mos, mos-updates, mos-security, mos-holdback'
 MU_UPGRADE_FOR_SETTINGS = {
@@ -77,8 +79,13 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
                             type=int,
                             help='Environment ID')
         parser.add_argument('--repos',
-                            nargs="+",
-                            type=str,
+                            nargs='+',
+                            default=[
+                                'mos',
+                                'mos-updates',
+                                'mos-security',
+                                'mos-holdback'
+                            ],
                             help='List of repositories')
         parser.add_argument('--restart-rabbit',
                             '--restart-rabbitmq',
@@ -111,6 +118,23 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
             stream = yaml.dump(settings_yaml)
             f.write(stream)
 
+    @staticmethod
+    def _validate_repo_list(env_id, repo_input):
+
+        env = Environment(env_id)
+        repo_names = {
+            x['name'] for x in env.get_settings_data()['editable'][
+                'repo_setup']['repos']['value']
+        }
+        repo_set = set([repo_input]) if isinstance(repo_input, string_types) \
+            else set(repo_input)
+
+        if not repo_set.issubset(repo_names):
+            raise Exception(
+                "Invalid repository list: {}, valid repositories are: {}"
+                "".format(", ".join(repo_set), ", ".join(repo_names))
+            )
+
     def take_action(self, parsed_args):
         env_id = parsed_args.env
         # Explicitly set some arguments
@@ -120,6 +144,9 @@ class Updates(environment.EnvMixIn, base.BaseCommand):
         setattr(parsed_args, 'dir', '/root')
         repos = DEFAULT_REPOS_LIST
         if parsed_args.repos:
+            # Validate the list of repos, if it is not ok or anything happened
+            # during the check - just throw an exception and fail
+            self._validate_repo_list(env_id, parsed_args.repos)
             repos = ', '.join(parsed_args.repos)
         if parsed_args.install:
             try:
